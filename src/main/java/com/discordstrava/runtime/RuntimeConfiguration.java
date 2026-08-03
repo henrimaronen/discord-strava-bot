@@ -3,7 +3,14 @@ package com.discordstrava.runtime;
 import com.discordstrava.configuration.AnnouncementConfigurationRepository;
 import com.discordstrava.configuration.ConfigureAnnouncementChannel;
 import com.discordstrava.configuration.JdbcAnnouncementConfigurationRepository;
+import com.discordstrava.connection.ConnectStrava;
+import com.discordstrava.connection.HttpStravaOAuthClient;
+import com.discordstrava.connection.JdbcStravaConnectionRepository;
+import com.discordstrava.connection.StravaConnectionRepository;
+import com.discordstrava.connection.StravaOAuthClient;
+import com.discordstrava.connection.TokenCipher;
 import com.discordstrava.discord.DiscordConfigurationListener;
+import java.time.Clock;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import com.zaxxer.hikari.HikariConfig;
@@ -64,6 +71,34 @@ public class RuntimeConfiguration {
     }
 
     @Bean
+    StravaConnectionRepository stravaConnectionRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcStravaConnectionRepository(jdbcTemplate);
+    }
+
+    @Bean
+    TokenCipher tokenCipher(RuntimeSettings settings) {
+        return new TokenCipher(settings.oauthTokenEncryptionKey());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(StravaOAuthClient.class)
+    StravaOAuthClient stravaOAuthClient(RuntimeSettings settings) {
+        return new HttpStravaOAuthClient(settings.stravaClientId(), settings.stravaClientSecret());
+    }
+
+    @Bean
+    Clock clock() {
+        return Clock.systemUTC();
+    }
+
+    @Bean
+    ConnectStrava connectStrava(RuntimeSettings settings, StravaConnectionRepository repository,
+            StravaOAuthClient stravaOAuthClient, TokenCipher tokenCipher, Clock clock) {
+        return new ConnectStrava(settings.discordGuildId(), settings.stravaClientId(), settings.publicBaseUrl(),
+                repository, stravaOAuthClient, tokenCipher, clock);
+    }
+
+    @Bean
     ConfigureAnnouncementChannel configureAnnouncementChannel(
             RuntimeSettings settings, AnnouncementConfigurationRepository repository) {
         return new ConfigureAnnouncementChannel(settings.discordGuildId(), repository, channelId -> false);
@@ -71,8 +106,9 @@ public class RuntimeConfiguration {
 
     @Bean
     DiscordConfigurationListener discordConfigurationListener(
-            RuntimeSettings settings, ConfigureAnnouncementChannel configuration) {
-        return new DiscordConfigurationListener(settings.discordGuildId(), configuration);
+            RuntimeSettings settings, ConfigureAnnouncementChannel configuration, ConnectStrava connectStrava,
+            AnnouncementConfigurationRepository announcementConfiguration) {
+        return new DiscordConfigurationListener(settings.discordGuildId(), configuration, connectStrava, announcementConfiguration);
     }
 
     @Bean
