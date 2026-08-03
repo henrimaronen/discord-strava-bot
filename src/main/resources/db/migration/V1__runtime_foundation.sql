@@ -1,0 +1,1 @@
+-- Reserve an explicit baseline for the production service. Domain tables follow in later migrations.
