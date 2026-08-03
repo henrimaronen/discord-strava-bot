@@ -4,5 +4,5 @@ import net.dv8tion.jda.api.JDA;
 
 @FunctionalInterface
 interface DiscordClientFactory {
-    JDA start(String token);
+    JDA start(String token, Object eventListener);
 }

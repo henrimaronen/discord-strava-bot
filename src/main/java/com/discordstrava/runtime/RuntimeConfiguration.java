@@ -1,5 +1,9 @@
 package com.discordstrava.runtime;
 
+import com.discordstrava.configuration.AnnouncementConfigurationRepository;
+import com.discordstrava.configuration.ConfigureAnnouncementChannel;
+import com.discordstrava.configuration.JdbcAnnouncementConfigurationRepository;
+import com.discordstrava.discord.DiscordConfigurationListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import com.zaxxer.hikari.HikariConfig;
@@ -9,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.flywaydb.core.Flyway;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 
@@ -48,16 +53,42 @@ public class RuntimeConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(JdbcTemplate.class)
+    JdbcTemplate jdbcTemplate(DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
+    }
+
+    @Bean
+    AnnouncementConfigurationRepository announcementConfigurationRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcAnnouncementConfigurationRepository(jdbcTemplate);
+    }
+
+    @Bean
+    ConfigureAnnouncementChannel configureAnnouncementChannel(
+            RuntimeSettings settings, AnnouncementConfigurationRepository repository) {
+        return new ConfigureAnnouncementChannel(settings.discordGuildId(), repository, channelId -> false);
+    }
+
+    @Bean
+    DiscordConfigurationListener discordConfigurationListener(
+            RuntimeSettings settings, ConfigureAnnouncementChannel configuration) {
+        return new DiscordConfigurationListener(settings.discordGuildId(), configuration);
+    }
+
+    @Bean
     @ConditionalOnMissingBean(DiscordClientFactory.class)
     DiscordClientFactory discordClientFactory() {
-        return token -> JDABuilder.createLight(token).build();
+        return (token, eventListener) -> JDABuilder.createLight(token).addEventListeners(eventListener).build();
     }
 
     @Bean(destroyMethod = "shutdown")
     @DependsOn("databaseMigration")
-    JDA discordClient(RuntimeSettings settings, DiscordClientFactory discordClientFactory) {
+    JDA discordClient(
+            RuntimeSettings settings,
+            DiscordClientFactory discordClientFactory,
+            DiscordConfigurationListener configurationListener) {
         // createLight retains no user/member cache and does not enable privileged intents.
-        return discordClientFactory.start(settings.discordToken());
+        return discordClientFactory.start(settings.discordToken(), configurationListener);
     }
 
 }

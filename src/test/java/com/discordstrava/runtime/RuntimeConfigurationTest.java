@@ -6,11 +6,14 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.discordstrava.configuration.ConfigureAnnouncementChannel;
+import com.discordstrava.discord.DiscordConfigurationListener;
 import javax.sql.DataSource;
 import net.dv8tion.jda.api.JDA;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 class RuntimeConfigurationTest {
     @Test
@@ -26,12 +29,17 @@ class RuntimeConfigurationTest {
             context.registerBean(RuntimeSettings.class, this::validSettings);
             context.registerBean(DataSource.class, () -> mock(DataSource.class));
             context.registerBean(Flyway.class, () -> flyway);
-            context.registerBean(DiscordClientFactory.class, () -> token -> {
+            context.registerBean(DiscordClientFactory.class, () -> (token, eventListener) -> {
                 events.add("discord");
+                assertThat(eventListener).isInstanceOf(DiscordConfigurationListener.class);
                 return mock(JDA.class);
             });
             context.register(RuntimeConfiguration.class);
             context.refresh();
+
+            assertThat(context.getBean(JdbcTemplate.class)).isNotNull();
+            assertThat(context.getBean(ConfigureAnnouncementChannel.class)).isNotNull();
+            assertThat(context.getBean(DiscordConfigurationListener.class)).isNotNull();
         }
 
         assertThat(events).containsExactly("migration", "discord");
