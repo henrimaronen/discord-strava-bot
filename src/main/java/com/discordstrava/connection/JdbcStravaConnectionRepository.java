@@ -1,6 +1,7 @@
 package com.discordstrava.connection;
 
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,7 +20,7 @@ public final class JdbcStravaConnectionRepository implements StravaConnectionRep
         return jdbcTemplate.query("delete from strava_oauth_state where state = ? and expires_at > ? "
                         + "returning state, discord_member_id, discord_guild_id, expires_at",
                 resultSet -> resultSet.next() ? Optional.of(new OAuthState(resultSet.getString(1), resultSet.getString(2),
-                        resultSet.getString(3), resultSet.getTimestamp(4).toInstant())) : Optional.empty(), value, now);
+                        resultSet.getString(3), resultSet.getTimestamp(4).toInstant())) : Optional.empty(), value, timestamp(now));
     }
 
     @Override
@@ -28,7 +29,7 @@ public final class JdbcStravaConnectionRepository implements StravaConnectionRep
                 insert into strava_oauth_state (state, discord_member_id, discord_guild_id, expires_at) values (?, ?, ?, ?)
                 on conflict (discord_member_id) do update set state = excluded.state, discord_guild_id = excluded.discord_guild_id,
                     expires_at = excluded.expires_at
-                """, state.value(), state.discordMemberId(), state.discordGuildId(), state.expiresAt());
+                """, state.value(), state.discordMemberId(), state.discordGuildId(), timestamp(state.expiresAt()));
     }
 
     @Override
@@ -59,8 +60,8 @@ public final class JdbcStravaConnectionRepository implements StravaConnectionRep
                     encrypted_access_token = excluded.encrypted_access_token,
                     encrypted_refresh_token = excluded.encrypted_refresh_token, token_expires_at = excluded.token_expires_at
                 """, connection.discordMemberId(), connection.stravaAthleteId(), connection.generation(), connection.stravaAthleteDisplayName(), connection.grantedScope(),
-                connection.state().name(), connection.connectedAt(), connection.encryptedAccessToken(),
-                connection.encryptedRefreshToken(), connection.tokenExpiresAt());
+                connection.state().name(), timestamp(connection.connectedAt()), connection.encryptedAccessToken(),
+                connection.encryptedRefreshToken(), timestamp(connection.tokenExpiresAt()));
         } catch (DuplicateKeyException exception) {
             throw new AthleteAlreadyLinkedException(exception);
         }
@@ -76,13 +77,13 @@ public final class JdbcStravaConnectionRepository implements StravaConnectionRep
     public void saveUnlinkConfirmation(String discordMemberId, UUID connectionGeneration, Instant expiresAt) {
         jdbcTemplate.update("insert into strava_unlink_confirmation (discord_member_id, connection_generation, expires_at) values (?, ?, ?) "
                         + "on conflict (discord_member_id) do update set connection_generation = excluded.connection_generation, expires_at = excluded.expires_at",
-                discordMemberId, connectionGeneration, expiresAt);
+                discordMemberId, connectionGeneration, timestamp(expiresAt));
     }
 
     @Override
     public Optional<UUID> consumeUnlinkConfirmation(String discordMemberId, Instant now) {
         return jdbcTemplate.query("delete from strava_unlink_confirmation where discord_member_id = ? and expires_at > ? returning connection_generation",
-                resultSet -> resultSet.next() ? Optional.of(resultSet.getObject(1, UUID.class)) : Optional.empty(), discordMemberId, now);
+                resultSet -> resultSet.next() ? Optional.of(resultSet.getObject(1, UUID.class)) : Optional.empty(), discordMemberId, timestamp(now));
     }
 
     @Override
@@ -100,5 +101,9 @@ public final class JdbcStravaConnectionRepository implements StravaConnectionRep
         return new StravaConnection(resultSet.getLong(1), resultSet.getString(2), resultSet.getLong(3), resultSet.getObject(4, UUID.class), resultSet.getString(5),
                 resultSet.getString(6), ConnectionState.valueOf(resultSet.getString(7)), resultSet.getTimestamp(8).toInstant(), resultSet.getString(9),
                 resultSet.getString(10), resultSet.getTimestamp(11) == null ? null : resultSet.getTimestamp(11).toInstant());
+    }
+
+    private static Timestamp timestamp(Instant instant) {
+        return instant == null ? null : Timestamp.from(instant);
     }
 }
