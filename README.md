@@ -11,6 +11,20 @@ automatically. Never commit their values.
 
 `GET /healthz` is public and returns only `{ "status": "ok" }`.
 
+## Local run
+
+Copy `.env.example` to `.env`, fill in the values, then load it before starting the app. `.env` is
+gitignored and must never be committed.
+
+```sh
+cp .env.example .env
+set -a; source .env; set +a
+mise exec java@21 -- gradle bootRun
+```
+
+Use a local PostgreSQL `DATABASE_URL` when developing locally. `PUBLIC_BASE_URL` needs an HTTPS
+tunnel URL for a real Strava OAuth or webhook test.
+
 ## Commands
 
 Run tests with Gradle 8.12+ and Java 21:
