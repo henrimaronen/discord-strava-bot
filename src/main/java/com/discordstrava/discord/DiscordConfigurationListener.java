@@ -45,6 +45,7 @@ public final class DiscordConfigurationListener extends ListenerAdapter {
             return;
         }
         guild.updateCommands().addCommands(
+                Commands.slash("help", "Show available bot commands"),
                 Commands.slash("connect", "Connect your Strava account"),
                 Commands.slash("status", "Show your private Strava connection status"),
                 Commands.slash("unlink", "Disconnect your Strava account"),
@@ -62,6 +63,10 @@ public final class DiscordConfigurationListener extends ListenerAdapter {
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
+        if ("help".equals(event.getName())) {
+            help(event);
+            return;
+        }
         if ("connect".equals(event.getName())) {
             connect(event);
             return;
@@ -129,6 +134,15 @@ public final class DiscordConfigurationListener extends ListenerAdapter {
         }
         event.reply("Connect Strava privately.").setEphemeral(true)
                 .addActionRow(Button.link(result.authorizationUrl(), "Connect Strava")).queue();
+    }
+
+    private void help(SlashCommandInteractionEvent event) {
+        Guild guild = event.getGuild();
+        if (guild == null || !discordGuildId.equals(guild.getId())) {
+            event.reply("This command is only available in the configured Discord server.").setEphemeral(true).queue();
+            return;
+        }
+        event.reply(DiscordHelp.message()).setEphemeral(true).queue();
     }
 
     private void status(SlashCommandInteractionEvent event) {

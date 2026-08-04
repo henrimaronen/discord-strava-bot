@@ -27,6 +27,10 @@ tunnel URL for a real Strava OAuth or webhook test.
 
 ## Commands
 
+`/help` privately lists the available commands. `/connect`, `/status`, and `/unlink` manage a
+member's own Strava connection. Members with **Manage Server** can use `/configure channel` and
+`/configure disable` to manage activity announcements.
+
 Run tests with Gradle 8.12+ and Java 21:
 
 ```sh
