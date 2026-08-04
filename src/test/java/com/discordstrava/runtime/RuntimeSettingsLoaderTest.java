@@ -57,6 +57,7 @@ class RuntimeSettingsLoaderTest {
                 "STRAVA_CLIENT_ID", "12345",
                 "STRAVA_CLIENT_SECRET", "strava-secret",
                 "STRAVA_WEBHOOK_VERIFY_TOKEN", "verify-token",
+                "STRAVA_WEBHOOK_SUBSCRIPTION_ID", "1",
                 "OAUTH_TOKEN_ENCRYPTION_KEY", "encryption-key",
                 "PUBLIC_BASE_URL", "https://bot.example.com"));
     }

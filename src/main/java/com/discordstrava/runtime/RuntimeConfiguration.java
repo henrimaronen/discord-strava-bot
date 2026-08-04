@@ -9,8 +9,16 @@ import com.discordstrava.connection.JdbcStravaConnectionRepository;
 import com.discordstrava.connection.StravaConnectionRepository;
 import com.discordstrava.connection.StravaOAuthClient;
 import com.discordstrava.connection.TokenCipher;
+import com.discordstrava.activity.ActivityDeliveryRepository;
+import com.discordstrava.activity.AnnounceStravaActivity;
+import com.discordstrava.activity.DiscordActivityAnnouncements;
+import com.discordstrava.activity.HttpStravaActivityClient;
+import com.discordstrava.activity.JdaActivityAnnouncements;
+import com.discordstrava.activity.JdbcActivityDeliveryRepository;
+import com.discordstrava.activity.StravaActivityClient;
 import com.discordstrava.discord.DiscordConfigurationListener;
 import java.time.Clock;
+import java.util.concurrent.Executor;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import com.zaxxer.hikari.HikariConfig;
@@ -96,6 +104,38 @@ public class RuntimeConfiguration {
             StravaOAuthClient stravaOAuthClient, TokenCipher tokenCipher, Clock clock) {
         return new ConnectStrava(settings.discordGuildId(), settings.stravaClientId(), settings.publicBaseUrl(),
                 repository, stravaOAuthClient, tokenCipher, clock);
+    }
+
+    @Bean
+    ActivityDeliveryRepository activityDeliveryRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcActivityDeliveryRepository(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(StravaActivityClient.class)
+    StravaActivityClient stravaActivityClient() {
+        return new HttpStravaActivityClient();
+    }
+
+    @Bean
+    DiscordActivityAnnouncements discordActivityAnnouncements(JDA jda, RuntimeSettings settings) {
+        return new JdaActivityAnnouncements(jda, settings.discordGuildId());
+    }
+
+    @Bean
+    AnnounceStravaActivity announceStravaActivity(StravaConnectionRepository connections,
+            AnnouncementConfigurationRepository configuration, ActivityDeliveryRepository deliveries,
+            StravaActivityClient strava, DiscordActivityAnnouncements discord, TokenCipher tokenCipher) {
+        return new AnnounceStravaActivity(connections, configuration, deliveries, strava, discord, tokenCipher);
+    }
+
+    @Bean
+    Executor webhookExecutor() {
+        return command -> {
+            Thread thread = new Thread(command, "strava-webhook");
+            thread.setDaemon(true);
+            thread.start();
+        };
     }
 
     @Bean

@@ -8,6 +8,7 @@ public record RuntimeSettings(
         String stravaClientId,
         String stravaClientSecret,
         String stravaWebhookVerifyToken,
+        String stravaWebhookSubscriptionId,
         String oauthTokenEncryptionKey,
         String publicBaseUrl) {
 }

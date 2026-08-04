@@ -9,8 +9,8 @@ public final class RuntimeSettingsLoader {
     private static final Pattern SNOWFLAKE = Pattern.compile("[0-9]{15,22}");
     private static final String[] REQUIRED = {
             "DATABASE_URL", "DISCORD_TOKEN", "DISCORD_GUILD_ID", "STRAVA_CLIENT_ID",
-            "STRAVA_CLIENT_SECRET", "STRAVA_WEBHOOK_VERIFY_TOKEN", "OAUTH_TOKEN_ENCRYPTION_KEY",
-            "PUBLIC_BASE_URL"
+            "STRAVA_CLIENT_SECRET", "STRAVA_WEBHOOK_VERIFY_TOKEN", "STRAVA_WEBHOOK_SUBSCRIPTION_ID",
+            "OAUTH_TOKEN_ENCRYPTION_KEY", "PUBLIC_BASE_URL"
     };
 
     private RuntimeSettingsLoader() {
@@ -36,6 +36,7 @@ public final class RuntimeSettingsLoader {
         return new RuntimeSettings(
                 values.get("DATABASE_URL"), values.get("DISCORD_TOKEN"), guildId,
                 values.get("STRAVA_CLIENT_ID"), values.get("STRAVA_CLIENT_SECRET"),
-                values.get("STRAVA_WEBHOOK_VERIFY_TOKEN"), values.get("OAUTH_TOKEN_ENCRYPTION_KEY"), baseUrl);
+                values.get("STRAVA_WEBHOOK_VERIFY_TOKEN"), values.get("STRAVA_WEBHOOK_SUBSCRIPTION_ID"),
+                values.get("OAUTH_TOKEN_ENCRYPTION_KEY"), baseUrl);
     }
 }

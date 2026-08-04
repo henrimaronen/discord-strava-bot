@@ -48,6 +48,6 @@ class RuntimeConfigurationTest {
     private RuntimeSettings validSettings() {
         return new RuntimeSettings(
                 "jdbc:postgresql://localhost:5432/bot", "discord-token", "123456789012345678",
-                "12345", "strava-secret", "verify-token", "encryption-key", "https://bot.example.com");
+                "12345", "strava-secret", "verify-token", "1", "encryption-key", "https://bot.example.com");
     }
 }
