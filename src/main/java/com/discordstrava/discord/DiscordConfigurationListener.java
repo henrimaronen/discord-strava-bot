@@ -95,6 +95,7 @@ public final class DiscordConfigurationListener extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         String command = event.getName();
+        logger.info("[DEBUG-cmd] received {}", command);
         if (!"help".equals(command) && !"connect".equals(command) && !"status".equals(command)
                 && !"unlink".equals(command) && !"configure".equals(command)) {
             return;
@@ -191,7 +192,11 @@ public final class DiscordConfigurationListener extends ListenerAdapter {
     }
 
     private void replyWhenComplete(IReplyCallback event, String command, Supplier<CommandReply> operation) {
-        event.deferReply(true).queue(hook -> run(command, operation, hook));
+        logger.info("[DEBUG-cmd] acknowledging {}", command);
+        event.deferReply(true).queue(hook -> {
+            logger.info("[DEBUG-cmd] acknowledged {}", command);
+            run(command, operation, hook);
+        }, failure -> logger.warn("[DEBUG-cmd] acknowledgement failed for {}", command, failure));
     }
 
     private void run(String command, Supplier<CommandReply> operation, InteractionHook hook) {
