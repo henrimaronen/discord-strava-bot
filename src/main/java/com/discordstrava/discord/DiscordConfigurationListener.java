@@ -95,7 +95,6 @@ public final class DiscordConfigurationListener extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         String command = event.getName();
-        logger.info("[DEBUG-cmd] received {}", command);
         if (!"help".equals(command) && !"connect".equals(command) && !"status".equals(command)
                 && !"unlink".equals(command) && !"configure".equals(command)) {
             return;
@@ -192,11 +191,8 @@ public final class DiscordConfigurationListener extends ListenerAdapter {
     }
 
     private void replyWhenComplete(IReplyCallback event, String command, Supplier<CommandReply> operation) {
-        logger.info("[DEBUG-cmd] acknowledging {}", command);
-        event.deferReply(true).queue(hook -> {
-            logger.info("[DEBUG-cmd] acknowledged {}", command);
-            run(command, operation, hook);
-        }, failure -> logger.warn("[DEBUG-cmd] acknowledgement failed for {}", command, failure));
+        event.deferReply(true).queue(hook -> run(command, operation, hook),
+                failure -> logger.warn("Discord command acknowledgement failed for {}", command, failure));
     }
 
     private void run(String command, Supplier<CommandReply> operation, InteractionHook hook) {
@@ -227,19 +223,25 @@ public final class DiscordConfigurationListener extends ListenerAdapter {
     private void complete(String command, InteractionHook hook, CommandReply reply, Throwable failure) {
         if (failure == null) {
             if (reply.button() == null) {
-                hook.editOriginal(reply.message()).queue();
+                editOriginal(command, hook, reply.message());
             } else {
-                hook.editOriginal(reply.message()).setActionRow(reply.button()).queue();
+                hook.editOriginal(reply.message()).setActionRow(reply.button()).queue(
+                        ignored -> { }, editFailure -> logger.warn("Discord command completion failed for {}", command, editFailure));
             }
             return;
         }
         if (failure instanceof TimeoutException) {
             logger.warn("Discord command {} timed out after {} ms", command, commandTimeout.toMillis());
-            hook.editOriginal(TIMEOUT_MESSAGE).queue();
+            editOriginal(command, hook, TIMEOUT_MESSAGE);
             return;
         }
         logger.warn("Discord command {} failed", command, failure);
-        hook.editOriginal(UNAVAILABLE_MESSAGE).queue();
+        editOriginal(command, hook, UNAVAILABLE_MESSAGE);
+    }
+
+    private void editOriginal(String command, InteractionHook hook, String message) {
+        hook.editOriginal(message).queue(
+                ignored -> { }, failure -> logger.warn("Discord command completion failed for {}", command, failure));
     }
 
     private record CommandReply(String message, Button button) {
