@@ -23,6 +23,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import com.zaxxer.hikari.HikariConfig;
@@ -31,6 +34,7 @@ import javax.sql.DataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.flywaydb.core.Flyway;
@@ -38,6 +42,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 
 @Configuration
 public class RuntimeConfiguration {
+    private static final long DATABASE_CONNECTION_TIMEOUT_MILLIS = 2_000;
+    private static final int DATABASE_QUERY_TIMEOUT_SECONDS = 5;
     @Bean
     RuntimeSettings runtimeSettings(Environment environment) {
         return RuntimeSettingsLoader.load(environment);
@@ -56,6 +62,7 @@ public class RuntimeConfiguration {
             config.setPassword(connection.password());
         }
         config.setMaximumPoolSize(5);
+        config.setConnectionTimeout(DATABASE_CONNECTION_TIMEOUT_MILLIS);
         return new HikariDataSource(config);
     }
 
@@ -74,7 +81,9 @@ public class RuntimeConfiguration {
     @Bean
     @ConditionalOnMissingBean(JdbcTemplate.class)
     JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        return new JdbcTemplate(dataSource);
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        jdbcTemplate.setQueryTimeout(DATABASE_QUERY_TIMEOUT_SECONDS);
+        return jdbcTemplate;
     }
 
     @Bean
@@ -157,6 +166,15 @@ public class RuntimeConfiguration {
         });
     }
 
+    @Bean(destroyMethod = "shutdown")
+    ExecutorService discordCommandExecutor() {
+        return new ThreadPoolExecutor(5, 5, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(20), runnable -> {
+            Thread thread = new Thread(runnable, "discord-command");
+            thread.setDaemon(true);
+            return thread;
+        }, new ThreadPoolExecutor.AbortPolicy());
+    }
+
     @Bean
     ConfigureAnnouncementChannel configureAnnouncementChannel(
             RuntimeSettings settings, AnnouncementConfigurationRepository repository) {
@@ -166,8 +184,10 @@ public class RuntimeConfiguration {
     @Bean
     DiscordConfigurationListener discordConfigurationListener(
             RuntimeSettings settings, ConfigureAnnouncementChannel configuration, ConnectStrava connectStrava,
-            AnnouncementConfigurationRepository announcementConfiguration) {
-        return new DiscordConfigurationListener(settings.discordGuildId(), configuration, connectStrava, announcementConfiguration);
+            AnnouncementConfigurationRepository announcementConfiguration,
+            @Qualifier("discordCommandExecutor") Executor discordCommandExecutor) {
+        return new DiscordConfigurationListener(settings.discordGuildId(), configuration, connectStrava,
+                announcementConfiguration, discordCommandExecutor);
     }
 
     @Bean

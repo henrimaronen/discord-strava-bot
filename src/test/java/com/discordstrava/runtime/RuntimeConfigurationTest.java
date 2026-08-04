@@ -14,8 +14,21 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
+import com.zaxxer.hikari.HikariDataSource;
 
 class RuntimeConfigurationTest {
+    @Test
+    void boundsDatabaseAcquisitionAndQueryTime() {
+        RuntimeConfiguration configuration = new RuntimeConfiguration();
+        HikariDataSource dataSource = (HikariDataSource) configuration.dataSource(validSettings());
+        try {
+            assertThat(dataSource.getConnectionTimeout()).isEqualTo(2_000);
+            assertThat(configuration.jdbcTemplate(dataSource).getQueryTimeout()).isEqualTo(5);
+        } finally {
+            dataSource.close();
+        }
+    }
+
     @Test
     void completesMigrationsBeforeStartingDiscord() {
         List<String> events = new ArrayList<>();
