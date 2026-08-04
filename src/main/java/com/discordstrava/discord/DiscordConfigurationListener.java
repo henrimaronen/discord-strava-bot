@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 public final class DiscordConfigurationListener extends ListenerAdapter {
     private static final Logger logger = LoggerFactory.getLogger(DiscordConfigurationListener.class);
     private static final Duration DEFAULT_COMMAND_TIMEOUT = Duration.ofSeconds(5);
-    private static final String WORKING_MESSAGE = "Working…";
     private static final String TIMEOUT_MESSAGE = "This request timed out. Please try again.";
     private static final String UNAVAILABLE_MESSAGE = "This request is temporarily unavailable. Please try again.";
     private final String discordGuildId;
@@ -192,7 +191,7 @@ public final class DiscordConfigurationListener extends ListenerAdapter {
     }
 
     private void replyWhenComplete(IReplyCallback event, String command, Supplier<CommandReply> operation) {
-        event.reply(WORKING_MESSAGE).setEphemeral(true).queue(hook -> run(command, operation, hook));
+        event.deferReply(true).queue(hook -> run(command, operation, hook));
     }
 
     private void run(String command, Supplier<CommandReply> operation, InteractionHook hook) {

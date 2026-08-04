@@ -45,8 +45,7 @@ class DiscordConfigurationListenerTest {
         when(event.getMember()).thenReturn(member);
         when(guild.getId()).thenReturn(serverId);
         when(member.getId()).thenReturn("234567890123456789");
-        when(event.reply("Working…")).thenReturn(initialReply);
-        when(initialReply.setEphemeral(true)).thenReturn(initialReply);
+        when(event.deferReply(true)).thenReturn(initialReply);
         doAnswer(invocation -> {
             ((java.util.function.Consumer<InteractionHook>) invocation.getArgument(0)).accept(hook);
             return null;
@@ -91,8 +90,7 @@ class DiscordConfigurationListenerTest {
         when(event.getMember()).thenReturn(member);
         when(guild.getId()).thenReturn(serverId);
         when(member.getId()).thenReturn("234567890123456789");
-        when(event.reply("Working…")).thenReturn(initialReply);
-        when(initialReply.setEphemeral(true)).thenReturn(initialReply);
+        when(event.deferReply(true)).thenReturn(initialReply);
         doAnswer(invocation -> {
             ((java.util.function.Consumer<InteractionHook>) invocation.getArgument(0)).accept(hook);
             return null;
