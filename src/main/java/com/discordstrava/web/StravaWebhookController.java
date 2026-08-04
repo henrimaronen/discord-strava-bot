@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 /** Fast Strava subscription validation and event acknowledgement adapter. */
 @RestController @RequestMapping("/webhooks/strava")
@@ -24,7 +25,7 @@ public final class StravaWebhookController {
 
     public StravaWebhookController(@Value("${STRAVA_WEBHOOK_VERIFY_TOKEN}") String verifyToken,
             @Value("${STRAVA_WEBHOOK_SUBSCRIPTION_ID}") long subscriptionId,
-            AnnounceStravaActivity announcements, Executor executor) {
+            AnnounceStravaActivity announcements, @Qualifier("webhookExecutor") Executor executor) {
         this.verifyToken = verifyToken;
         this.subscriptionId = subscriptionId;
         this.announcements = announcements;
@@ -37,7 +38,10 @@ public final class StravaWebhookController {
     }
     @PostMapping public ResponseEntity<Void> receive(@RequestBody EventBody body) {
         ActivityWebhook event = new ActivityWebhook(body.object_type(), body.aspect_type(), body.object_id(), body.owner_id(), body.subscription_id());
-        if (event.isActivityCreate() && event.subscriptionId() == subscriptionId) executor.execute(() -> announcements.announce(event));
+        if (event.isActivityCreate() && event.subscriptionId() == subscriptionId
+                && announcements.enqueue(event) == AnnounceStravaActivity.Result.QUEUED) {
+            executor.execute(() -> announcements.deliver(event.activityId()));
+        }
         return ResponseEntity.ok().build();
     }
     public record EventBody(String object_type, String aspect_type, long object_id, long owner_id, long subscription_id) { }

@@ -11,6 +11,8 @@ public interface StravaConnectionRepository {
 
     Optional<StravaConnection> findByAthleteId(long stravaAthleteId);
 
+    Optional<StravaConnection> findById(long id);
+
     void save(StravaConnection connection);
 
     void markReconnectNeeded(long stravaAthleteId);

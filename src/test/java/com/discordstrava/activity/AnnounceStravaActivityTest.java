@@ -26,7 +26,7 @@ class AnnounceStravaActivityTest {
     private final FakeStrava strava = new FakeStrava();
     private final FakeDiscord discord = new FakeDiscord();
     private final AnnounceStravaActivity service = new AnnounceStravaActivity(connections,
-            new FakeConfiguration(), deliveries, strava, discord, tokens);
+            new FakeConfiguration(), deliveries, strava, discord, tokens, Clock.fixed(CONNECTED, ZoneOffset.UTC));
 
     @Test
     void announcesOneEligibleCreateWithOnlyTheAllowedProjection() {
@@ -63,6 +63,54 @@ class AnnounceStravaActivityTest {
         assertThat(discord.sent).hasSize(1);
     }
 
+    @Test
+    void transientFailureIsDurablyScheduledWithBoundedBackoff() {
+        strava.failure = new StravaActivityClient.ActivityUnavailableException("unavailable");
+
+        assertThat(service.announce(event())).isEqualTo(AnnounceStravaActivity.Result.RETRY_SCHEDULED);
+        assertThat(deliveries.retryAt).isEqualTo(CONNECTED.plusSeconds(1));
+    }
+
+    @Test
+    void departedMemberDeletesTheirConnection() {
+        discord.failure = new DiscordDeliveryException(DiscordDeliveryException.Kind.MEMBER_GONE, "gone", null);
+
+        assertThat(service.announce(event())).isEqualTo(AnnounceStravaActivity.Result.MEMBER_GONE);
+        assertThat(connections.deletedMember).isEqualTo("member");
+    }
+
+    @Test
+    void inaccessibleChannelDisablesFutureAnnouncements() {
+        FakeConfiguration configuration = new FakeConfiguration();
+        AnnounceStravaActivity channelService = new AnnounceStravaActivity(connections, configuration, deliveries,
+                strava, new FakeDiscord(new DiscordDeliveryException(DiscordDeliveryException.Kind.CHANNEL_UNAVAILABLE, "no access", null)), tokens,
+                Clock.fixed(CONNECTED, ZoneOffset.UTC));
+
+        assertThat(channelService.announce(event())).isEqualTo(AnnounceStravaActivity.Result.CHANNEL_UNAVAILABLE);
+        assertThat(configuration.get().enabled()).isFalse();
+    }
+
+    @Test
+    void sentMessageWithPersistenceFailureBecomesTerminalUncertainInsteadOfRetrying() {
+        deliveries.markSentFailure = true;
+
+        assertThat(service.announce(event())).isEqualTo(AnnounceStravaActivity.Result.UNCERTAIN_SENT);
+        assertThat(deliveries.uncertain).contains(44L);
+        assertThat(deliveries.retryAt).isNull();
+    }
+
+    @Test
+    void retryWindowExhaustionIsTerminalAndDoesNotScheduleAnotherAttempt() {
+        strava.failure = new StravaActivityClient.ActivityUnavailableException("unavailable");
+        deliveries.seed(44, 3, CONNECTED);
+        AnnounceStravaActivity expiredService = new AnnounceStravaActivity(connections, new FakeConfiguration(), deliveries, strava, discord,
+                tokens, Clock.fixed(CONNECTED.plusSeconds(24 * 60 * 60), ZoneOffset.UTC));
+
+        assertThat(expiredService.deliver(44)).isEqualTo(AnnounceStravaActivity.Result.FAILED);
+        assertThat(deliveries.failed).contains(44L);
+        assertThat(deliveries.retryAt).isNull();
+    }
+
     private static ActivityWebhook event() { return new ActivityWebhook("activity", "create", 44, 7, 1); }
     private StravaConnection active() { return new StravaConnection(3, "member", 7, UUID.randomUUID(), "private", "activity:read", ConnectionState.ACTIVE, CONNECTED, tokens.encrypt("access"), tokens.encrypt("refresh"), CONNECTED.plusSeconds(1)); }
     private StravaConnection reconnectNeeded() { return StravaConnection.reconnectNeeded(active()); }
@@ -72,27 +120,48 @@ class AnnounceStravaActivityTest {
         public Optional<OAuthState> consumeOAuthState(String value, Instant now) { return Optional.empty(); }
         public Optional<StravaConnection> findByMemberId(String member) { return Optional.empty(); }
         public Optional<StravaConnection> findByAthleteId(long athlete) { return athlete == 7 ? Optional.of(connection) : Optional.empty(); }
+        public Optional<StravaConnection> findById(long id) { return id == 3 ? Optional.of(connection) : Optional.empty(); }
         public void save(StravaConnection connection) { }
+        private String deletedMember;
         public void markReconnectNeeded(long athlete) { }
         public void saveUnlinkConfirmation(String member, UUID generation, Instant expiry) { }
         public Optional<UUID> consumeUnlinkConfirmation(String member, Instant now) { return Optional.empty(); }
-        public boolean deleteByMemberIdAndGeneration(String member, UUID generation) { return false; }
+        public boolean deleteByMemberIdAndGeneration(String member, UUID generation) { deletedMember = member; return true; }
     }
     private static final class FakeConfiguration implements AnnouncementConfigurationRepository {
-        public AnnouncementConfiguration get() { return AnnouncementConfiguration.enabled("channel"); }
-        public void save(AnnouncementConfiguration configuration) { }
+        private AnnouncementConfiguration configuration = AnnouncementConfiguration.enabled("channel");
+        public AnnouncementConfiguration get() { return configuration; }
+        public void save(AnnouncementConfiguration configuration) { this.configuration = configuration; }
     }
     private static final class FakeDeliveries implements ActivityDeliveryRepository {
         private final Set<Long> claimed = new HashSet<>(); private final Set<Long> sent = new HashSet<>();
-        public boolean claim(long activityId, long connectionId) { return claimed.add(activityId); }
-        public void markSent(long activityId) { sent.add(activityId); }
+        private final java.util.Map<Long, Delivery> records = new java.util.HashMap<>();
+        public boolean claim(long activityId, long connectionId, Instant now) { if (!claimed.add(activityId)) return false; records.put(activityId, new Delivery(activityId, connectionId, now, 0)); return true; }
+        public java.util.List<Delivery> due(Instant now, int limit) { return java.util.List.of(); }
+        public Optional<Delivery> delivery(long activityId) { return Optional.ofNullable(records.get(activityId)); }
+        public boolean start(long activityId, Instant now) { return records.containsKey(activityId); }
+        private boolean markSentFailure;
+        private final Set<Long> uncertain = new HashSet<>();
+        private final Set<Long> failed = new HashSet<>();
+        void seed(long activityId, long connectionId, Instant createdAt) { records.put(activityId, new Delivery(activityId, connectionId, createdAt, 0)); }
+        public void markSent(long activityId, Instant now) { if (markSentFailure) throw new IllegalStateException("database unavailable"); sent.add(activityId); }
+        private Instant retryAt;
+        public void retry(long activityId, Instant next) { retryAt = next; }
+        public void markFailed(long activityId) { failed.add(activityId); }
+        public void markUncertain(long activityId) { uncertain.add(activityId); }
+        public void discard(long activityId) { }
+        public void purgeExpired(Instant before) { }
     }
     private static final class FakeStrava implements StravaActivityClient {
         private StravaActivity activity = new StravaActivity(44, "Morning Run", "Run", 5200, 1800, CONNECTED.plusSeconds(1));
-        public StravaActivity fetch(long id, String token) { return activity; }
+        private RuntimeException failure;
+        public StravaActivity fetch(long id, String token) { if (failure != null) throw failure; return activity; }
     }
     private static final class FakeDiscord implements DiscordActivityAnnouncements {
         private final java.util.List<DiscordActivityAnnouncement> sent = new java.util.ArrayList<>();
-        public void send(DiscordActivityAnnouncement announcement) { sent.add(announcement); }
+        private RuntimeException failure;
+        FakeDiscord() { }
+        FakeDiscord(RuntimeException failure) { this.failure = failure; }
+        public void send(DiscordActivityAnnouncement announcement) { if (failure != null) throw failure; sent.add(announcement); }
     }
 }

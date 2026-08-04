@@ -42,6 +42,11 @@ public final class JdbcStravaConnectionRepository implements StravaConnectionRep
     }
 
     @Override
+    public Optional<StravaConnection> findById(long id) {
+        return find("id", id);
+    }
+
+    @Override
     public void save(StravaConnection connection) {
         try {
             jdbcTemplate.update("""

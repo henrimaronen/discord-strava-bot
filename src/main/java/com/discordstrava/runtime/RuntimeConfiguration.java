@@ -10,6 +10,7 @@ import com.discordstrava.connection.StravaConnectionRepository;
 import com.discordstrava.connection.StravaOAuthClient;
 import com.discordstrava.connection.TokenCipher;
 import com.discordstrava.activity.ActivityDeliveryRepository;
+import com.discordstrava.activity.ActivityDeliveryRetryWorker;
 import com.discordstrava.activity.AnnounceStravaActivity;
 import com.discordstrava.activity.DiscordActivityAnnouncements;
 import com.discordstrava.activity.HttpStravaActivityClient;
@@ -19,6 +20,9 @@ import com.discordstrava.activity.StravaActivityClient;
 import com.discordstrava.discord.DiscordConfigurationListener;
 import java.time.Clock;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import com.zaxxer.hikari.HikariConfig;
@@ -125,17 +129,32 @@ public class RuntimeConfiguration {
     @Bean
     AnnounceStravaActivity announceStravaActivity(StravaConnectionRepository connections,
             AnnouncementConfigurationRepository configuration, ActivityDeliveryRepository deliveries,
-            StravaActivityClient strava, DiscordActivityAnnouncements discord, TokenCipher tokenCipher) {
-        return new AnnounceStravaActivity(connections, configuration, deliveries, strava, discord, tokenCipher);
+            StravaActivityClient strava, DiscordActivityAnnouncements discord, TokenCipher tokenCipher, Clock clock) {
+        return new AnnounceStravaActivity(connections, configuration, deliveries, strava, discord, tokenCipher, clock);
     }
 
-    @Bean
-    Executor webhookExecutor() {
-        return command -> {
-            Thread thread = new Thread(command, "strava-webhook");
+    @Bean(destroyMethod = "shutdown")
+    ScheduledExecutorService activityDeliveryScheduler() {
+        return Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "activity-delivery-retry");
             thread.setDaemon(true);
-            thread.start();
-        };
+            return thread;
+        });
+    }
+
+    @Bean(destroyMethod = "close")
+    ActivityDeliveryRetryWorker activityDeliveryRetryWorker(AnnounceStravaActivity announcements,
+            ActivityDeliveryRepository deliveries, Clock clock, ScheduledExecutorService activityDeliveryScheduler) {
+        return new ActivityDeliveryRetryWorker(announcements, deliveries, clock, activityDeliveryScheduler);
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    ExecutorService webhookExecutor() {
+        return Executors.newFixedThreadPool(4, runnable -> {
+            Thread thread = new Thread(runnable, "strava-webhook");
+            thread.setDaemon(true);
+            return thread;
+        });
     }
 
     @Bean

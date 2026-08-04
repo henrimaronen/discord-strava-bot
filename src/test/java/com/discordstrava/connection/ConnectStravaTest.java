@@ -179,6 +179,9 @@ class ConnectStravaTest {
         @Override public Optional<StravaConnection> findByAthleteId(long athlete) {
             return connections.values().stream().filter(connection -> connection.stravaAthleteId() == athlete).findFirst();
         }
+        @Override public Optional<StravaConnection> findById(long id) {
+            return connections.values().stream().filter(connection -> connection.id() == id).findFirst();
+        }
         @Override public void save(StravaConnection connection) { connections.put(connection.discordMemberId(), connection); }
         @Override public void markReconnectNeeded(long athlete) {
             findByAthleteId(athlete).ifPresent(connection -> connections.put(connection.discordMemberId(), StravaConnection.reconnectNeeded(connection)));
