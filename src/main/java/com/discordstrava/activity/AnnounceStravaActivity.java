@@ -42,13 +42,24 @@ public final class AnnounceStravaActivity {
 
     /** Claims delivery synchronously, before the HTTP webhook receiver acknowledges the provider. */
     public Result enqueue(ActivityWebhook event) {
-        if (!event.isActivityCreate()) return Result.IGNORED;
+        if (!event.isActivityCreate()) {
+            log.info("[DEBUG-webhook] ignored non-create event");
+            return Result.IGNORED;
+        }
         var configured = configuration.get();
-        if (!configured.enabled()) return Result.IGNORED;
+        if (!configured.enabled()) {
+            log.info("[DEBUG-webhook] ignored because announcements are disabled");
+            return Result.IGNORED;
+        }
         var connection = connections.findByAthleteId(event.athleteId());
-        if (connection.isEmpty() || connection.get().state() != ConnectionState.ACTIVE) return Result.IGNORED;
+        if (connection.isEmpty() || connection.get().state() != ConnectionState.ACTIVE) {
+            log.info("[DEBUG-webhook] ignored because athlete connection is unavailable");
+            return Result.IGNORED;
+        }
         StravaConnection active = connection.get();
-        return deliveries.claim(event.activityId(), active.id(), clock.instant()) ? Result.QUEUED : Result.DUPLICATE;
+        boolean claimed = deliveries.claim(event.activityId(), active.id(), clock.instant());
+        if (!claimed) log.info("[DEBUG-webhook] ignored duplicate activity delivery");
+        return claimed ? Result.QUEUED : Result.DUPLICATE;
     }
 
     /** Processes one persisted record. It is safe for an immediate webhook task and the periodic retry worker to race. */

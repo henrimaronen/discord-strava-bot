@@ -47,7 +47,7 @@ public final class StravaWebhookController {
                 ? announcements.enqueue(event) : AnnounceStravaActivity.Result.IGNORED;
         log.info("[DEBUG-webhook] enqueue result={}", result);
         if (result == AnnounceStravaActivity.Result.QUEUED) {
-            executor.execute(() -> announcements.deliver(event.activityId()));
+            executor.execute(() -> log.info("[DEBUG-webhook] delivery result={}", announcements.deliver(event.activityId())));
         }
         return ResponseEntity.ok().build();
     }
