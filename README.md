@@ -1,6 +1,9 @@
 # Discord Strava Bot
 
-Java 21 service: JDA Gateway client plus Spring MVC HTTP server and PostgreSQL/Flyway.
+Discord Strava Bot automatically shares completed Strava activities in a Discord server. Members privately connect their own Strava accounts, and the bot posts a simple activity summary, that includes the sport, distance, duration, and completion time.
+
+Server admins choose where announcements appear. Members remain in control of their own connection and can check its status or disconnect at any time.
+
 
 ## Local run
 
@@ -21,7 +24,7 @@ tunnel URL for a real Strava OAuth or webhook test.
 
 `/help` privately lists the available commands.
 
- `/connect`, `/status`, and `/unlink` manage a member's own Strava connection.
+`/connect`, `/status`, and `/unlink` manage a member's own Strava connection.
 
 Members with **Manage Server** can use `/configure channel` and
 `/configure disable` to manage activity announcements.
