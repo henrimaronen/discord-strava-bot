@@ -2,3 +2,5 @@
 .gradle
 build
 wayfinder
+.env*
+!.env.example
