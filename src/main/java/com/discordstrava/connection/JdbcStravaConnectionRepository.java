@@ -74,6 +74,21 @@ public final class JdbcStravaConnectionRepository implements StravaConnectionRep
     }
 
     @Override
+    public boolean markReconnectNeeded(long connectionId, UUID connectionGeneration) {
+        return jdbcTemplate.update("update strava_connection set state = 'RECONNECT_NEEDED', encrypted_access_token = null, "
+                        + "encrypted_refresh_token = null, token_expires_at = null where id = ? and connection_generation = ? and state = 'ACTIVE'",
+                connectionId, connectionGeneration) == 1;
+    }
+
+    @Override
+    public boolean rotateTokens(long connectionId, UUID connectionGeneration, String encryptedAccessToken,
+            String encryptedRefreshToken, Instant expiresAt) {
+        return jdbcTemplate.update("update strava_connection set encrypted_access_token = ?, encrypted_refresh_token = ?, "
+                        + "token_expires_at = ? where id = ? and connection_generation = ? and state = 'ACTIVE'",
+                encryptedAccessToken, encryptedRefreshToken, timestamp(expiresAt), connectionId, connectionGeneration) == 1;
+    }
+
+    @Override
     public void saveUnlinkConfirmation(String discordMemberId, UUID connectionGeneration, Instant expiresAt) {
         jdbcTemplate.update("insert into strava_unlink_confirmation (discord_member_id, connection_generation, expires_at) values (?, ?, ?) "
                         + "on conflict (discord_member_id) do update set connection_generation = excluded.connection_generation, expires_at = excluded.expires_at",

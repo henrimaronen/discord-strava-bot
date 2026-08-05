@@ -41,13 +41,13 @@ public final class StravaWebhookController {
     }
     @PostMapping public ResponseEntity<Void> receive(@RequestBody EventBody body) {
         ActivityWebhook event = new ActivityWebhook(body.object_type(), body.aspect_type(), body.object_id(), body.owner_id(), body.subscription_id());
-        log.info("[DEBUG-webhook] received type={} aspect={} subscription_id={}",
+        log.info("strava_webhook_received type={} aspect={} subscription_id={}",
                 event.objectType(), event.aspectType(), event.subscriptionId());
         AnnounceStravaActivity.Result result = event.isActivityCreate() && event.subscriptionId() == subscriptionId
                 ? announcements.enqueue(event) : AnnounceStravaActivity.Result.IGNORED;
-        log.info("[DEBUG-webhook] enqueue result={}", result);
+        log.info("strava_webhook_enqueued result={}", result);
         if (result == AnnounceStravaActivity.Result.QUEUED) {
-            executor.execute(() -> log.info("[DEBUG-webhook] delivery result={}", announcements.deliver(event.activityId())));
+            executor.execute(() -> log.info("activity_delivery_completed result={}", announcements.deliver(event.activityId())));
         }
         return ResponseEntity.ok().build();
     }

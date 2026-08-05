@@ -5,9 +5,11 @@ import com.discordstrava.configuration.ConfigureAnnouncementChannel;
 import com.discordstrava.configuration.JdbcAnnouncementConfigurationRepository;
 import com.discordstrava.connection.ConnectStrava;
 import com.discordstrava.connection.HttpStravaOAuthClient;
+import com.discordstrava.connection.HttpStravaTokenRefresher;
 import com.discordstrava.connection.JdbcStravaConnectionRepository;
 import com.discordstrava.connection.StravaConnectionRepository;
 import com.discordstrava.connection.StravaOAuthClient;
+import com.discordstrava.connection.StravaTokenRefresher;
 import com.discordstrava.connection.TokenCipher;
 import com.discordstrava.activity.ActivityDeliveryRepository;
 import com.discordstrava.activity.ActivityDeliveryRetryWorker;
@@ -108,6 +110,12 @@ public class RuntimeConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(StravaTokenRefresher.class)
+    StravaTokenRefresher stravaTokenRefresher(RuntimeSettings settings) {
+        return new HttpStravaTokenRefresher(settings.stravaClientId(), settings.stravaClientSecret());
+    }
+
+    @Bean
     Clock clock() {
         return Clock.systemUTC();
     }
@@ -138,8 +146,9 @@ public class RuntimeConfiguration {
     @Bean
     AnnounceStravaActivity announceStravaActivity(StravaConnectionRepository connections,
             AnnouncementConfigurationRepository configuration, ActivityDeliveryRepository deliveries,
-            StravaActivityClient strava, DiscordActivityAnnouncements discord, TokenCipher tokenCipher, Clock clock) {
-        return new AnnounceStravaActivity(connections, configuration, deliveries, strava, discord, tokenCipher, clock);
+            StravaActivityClient strava, DiscordActivityAnnouncements discord, TokenCipher tokenCipher,
+            StravaTokenRefresher tokenRefresher, Clock clock) {
+        return new AnnounceStravaActivity(connections, configuration, deliveries, strava, discord, tokenCipher, tokenRefresher, clock);
     }
 
     @Bean(destroyMethod = "shutdown")

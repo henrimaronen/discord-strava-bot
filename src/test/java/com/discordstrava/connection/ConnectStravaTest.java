@@ -159,6 +159,8 @@ class ConnectStravaTest {
     }
 
     private static final class FakeRepository implements StravaConnectionRepository {
+        public boolean rotateTokens(long id, java.util.UUID generation, String access, String refresh, Instant expiresAt) { return false; }
+        public boolean markReconnectNeeded(long id, java.util.UUID generation) { return false; }
         private final Map<String, OAuthState> states = new HashMap<>();
         private final Map<String, StravaConnection> connections = new HashMap<>();
 

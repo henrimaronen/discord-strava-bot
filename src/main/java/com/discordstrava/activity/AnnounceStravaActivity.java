@@ -4,6 +4,7 @@ import com.discordstrava.configuration.AnnouncementConfigurationRepository;
 import com.discordstrava.connection.ConnectionState;
 import com.discordstrava.connection.StravaConnection;
 import com.discordstrava.connection.StravaConnectionRepository;
+import com.discordstrava.connection.StravaTokenRefresher;
 import com.discordstrava.connection.TokenCipher;
 import java.time.Clock;
 import java.time.Duration;
@@ -21,17 +22,20 @@ public final class AnnounceStravaActivity {
     private final StravaActivityClient strava;
     private final DiscordActivityAnnouncements discord;
     private final TokenCipher tokens;
+    private final StravaTokenRefresher tokenRefresher;
     private final Clock clock;
 
     public AnnounceStravaActivity(StravaConnectionRepository connections,
             AnnouncementConfigurationRepository configuration, ActivityDeliveryRepository deliveries,
-            StravaActivityClient strava, DiscordActivityAnnouncements discord, TokenCipher tokens, Clock clock) {
+            StravaActivityClient strava, DiscordActivityAnnouncements discord, TokenCipher tokens,
+            StravaTokenRefresher tokenRefresher, Clock clock) {
         this.connections = connections;
         this.configuration = configuration;
         this.deliveries = deliveries;
         this.strava = strava;
         this.discord = discord;
         this.tokens = tokens;
+        this.tokenRefresher = tokenRefresher;
         this.clock = clock;
     }
 
@@ -43,22 +47,22 @@ public final class AnnounceStravaActivity {
     /** Claims delivery synchronously, before the HTTP webhook receiver acknowledges the provider. */
     public Result enqueue(ActivityWebhook event) {
         if (!event.isActivityCreate()) {
-            log.info("[DEBUG-webhook] ignored non-create event");
+            log.info("strava_webhook_ignored reason=non_create");
             return Result.IGNORED;
         }
         var configured = configuration.get();
         if (!configured.enabled()) {
-            log.info("[DEBUG-webhook] ignored because announcements are disabled");
+            log.info("strava_webhook_ignored reason=announcements_disabled");
             return Result.IGNORED;
         }
         var connection = connections.findByAthleteId(event.athleteId());
         if (connection.isEmpty() || connection.get().state() != ConnectionState.ACTIVE) {
-            log.info("[DEBUG-webhook] ignored because athlete connection is unavailable");
+            log.info("strava_webhook_ignored reason=athlete_connection_unavailable");
             return Result.IGNORED;
         }
         StravaConnection active = connection.get();
         boolean claimed = deliveries.claim(event.activityId(), active.id(), clock.instant());
-        if (!claimed) log.info("[DEBUG-webhook] ignored duplicate activity delivery");
+        if (!claimed) log.info("strava_webhook_ignored reason=duplicate_delivery");
         return claimed ? Result.QUEUED : Result.DUPLICATE;
     }
 
@@ -83,7 +87,8 @@ public final class AnnounceStravaActivity {
             return Result.IGNORED;
         }
         try {
-            StravaActivity activity = strava.fetch(activityId, tokens.decrypt(active.encryptedAccessToken()));
+            String accessToken = accessToken(active, now);
+            StravaActivity activity = strava.fetch(activityId, accessToken);
             if (activity.id() != activityId || !activity.startDate().isAfter(active.connectedAt())) {
                 deliveries.discard(activityId);
                 return Result.INELIGIBLE;
@@ -112,11 +117,31 @@ public final class AnnounceStravaActivity {
                 return Result.CHANNEL_UNAVAILABLE;
             }
             return retryOrFail(activityId, delivery, now);
-        } catch (StravaActivityClient.ActivityUnavailableException failure) {
+        } catch (StravaTokenRefresher.RefreshRejectedException failure) {
+            connections.markReconnectNeeded(active.id(), active.generation());
+            deliveries.discard(activityId);
+            log.warn("strava_reconnect_required connection_id={}", active.id());
+            return Result.RECONNECT_NEEDED;
+        } catch (StravaActivityClient.ActivityUnavailableException | StravaTokenRefresher.RefreshUnavailableException failure) {
+            log.warn("activity_delivery_retry activity_id={} connection_id={} boundary=strava", activityId, delivery.connectionId());
             return retryOrFail(activityId, delivery, now);
         } catch (RuntimeException failure) {
             return retryOrFail(activityId, delivery, now);
         }
+    }
+
+    private String accessToken(StravaConnection connection, Instant now) {
+        if (connection.tokenExpiresAt().isAfter(now.plusSeconds(300))) {
+            return tokens.decrypt(connection.encryptedAccessToken());
+        }
+        StravaTokenRefresher.RefreshedTokens refreshed = tokenRefresher.refresh(tokens.decrypt(connection.encryptedRefreshToken()));
+        boolean saved = connections.rotateTokens(connection.id(), connection.generation(), tokens.encrypt(refreshed.accessToken()),
+                tokens.encrypt(refreshed.refreshToken()), refreshed.expiresAt());
+        if (saved) return refreshed.accessToken();
+        StravaConnection current = connections.findById(connection.id())
+                .filter(value -> value.state() == ConnectionState.ACTIVE)
+                .orElseThrow(() -> new StravaTokenRefresher.RefreshUnavailableException("Strava connection changed during refresh", null));
+        return tokens.decrypt(current.encryptedAccessToken());
     }
 
     private Result retryOrFail(long activityId, ActivityDeliveryRepository.Delivery delivery, Instant now) {
@@ -131,5 +156,5 @@ public final class AnnounceStravaActivity {
         return Result.RETRY_SCHEDULED;
     }
 
-    public enum Result { QUEUED, ANNOUNCED, DUPLICATE, INELIGIBLE, IGNORED, RETRY_SCHEDULED, FAILED, MEMBER_GONE, CHANNEL_UNAVAILABLE, UNCERTAIN_SENT }
+    public enum Result { QUEUED, ANNOUNCED, DUPLICATE, INELIGIBLE, IGNORED, RETRY_SCHEDULED, FAILED, MEMBER_GONE, CHANNEL_UNAVAILABLE, UNCERTAIN_SENT, RECONNECT_NEEDED }
 }

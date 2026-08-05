@@ -15,7 +15,12 @@ public interface StravaConnectionRepository {
 
     void save(StravaConnection connection);
 
+    boolean rotateTokens(long connectionId, java.util.UUID connectionGeneration, String encryptedAccessToken,
+            String encryptedRefreshToken, java.time.Instant expiresAt);
+
     void markReconnectNeeded(long stravaAthleteId);
+
+    boolean markReconnectNeeded(long connectionId, java.util.UUID connectionGeneration);
 
     void saveUnlinkConfirmation(String discordMemberId, java.util.UUID connectionGeneration, java.time.Instant expiresAt);
 

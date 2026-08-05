@@ -8,6 +8,7 @@ import com.discordstrava.connection.ConnectionState;
 import com.discordstrava.connection.OAuthState;
 import com.discordstrava.connection.StravaConnection;
 import com.discordstrava.connection.StravaConnectionRepository;
+import com.discordstrava.connection.StravaTokenRefresher;
 import com.discordstrava.connection.TokenCipher;
 import java.time.Clock;
 import java.time.Instant;
@@ -25,8 +26,9 @@ class AnnounceStravaActivityTest {
     private final FakeDeliveries deliveries = new FakeDeliveries();
     private final FakeStrava strava = new FakeStrava();
     private final FakeDiscord discord = new FakeDiscord();
+    private final FakeTokenRefresher tokenRefresher = new FakeTokenRefresher();
     private final AnnounceStravaActivity service = new AnnounceStravaActivity(connections,
-            new FakeConfiguration(), deliveries, strava, discord, tokens, Clock.fixed(CONNECTED, ZoneOffset.UTC));
+            new FakeConfiguration(), deliveries, strava, discord, tokens, tokenRefresher, Clock.fixed(CONNECTED, ZoneOffset.UTC));
 
     @Test
     void announcesOneEligibleCreateWithOnlyTheAllowedProjection() {
@@ -84,7 +86,7 @@ class AnnounceStravaActivityTest {
         FakeConfiguration configuration = new FakeConfiguration();
         AnnounceStravaActivity channelService = new AnnounceStravaActivity(connections, configuration, deliveries,
                 strava, new FakeDiscord(new DiscordDeliveryException(DiscordDeliveryException.Kind.CHANNEL_UNAVAILABLE, "no access", null)), tokens,
-                Clock.fixed(CONNECTED, ZoneOffset.UTC));
+                tokenRefresher, Clock.fixed(CONNECTED, ZoneOffset.UTC));
 
         assertThat(channelService.announce(event())).isEqualTo(AnnounceStravaActivity.Result.CHANNEL_UNAVAILABLE);
         assertThat(configuration.get().enabled()).isFalse();
@@ -104,10 +106,29 @@ class AnnounceStravaActivityTest {
         strava.failure = new StravaActivityClient.ActivityUnavailableException("unavailable");
         deliveries.seed(44, 3, CONNECTED);
         AnnounceStravaActivity expiredService = new AnnounceStravaActivity(connections, new FakeConfiguration(), deliveries, strava, discord,
-                tokens, Clock.fixed(CONNECTED.plusSeconds(24 * 60 * 60), ZoneOffset.UTC));
+                tokens, tokenRefresher, Clock.fixed(CONNECTED.plusSeconds(24 * 60 * 60), ZoneOffset.UTC));
 
         assertThat(expiredService.deliver(44)).isEqualTo(AnnounceStravaActivity.Result.FAILED);
         assertThat(deliveries.failed).contains(44L);
+        assertThat(deliveries.retryAt).isNull();
+    }
+
+    @Test
+    void refreshesAndPersistsExpiredTokensBeforeFetchingActivity() {
+        assertThat(service.announce(event())).isEqualTo(AnnounceStravaActivity.Result.ANNOUNCED);
+
+        assertThat(tokenRefresher.receivedRefreshToken).isEqualTo("refresh");
+        assertThat(strava.receivedAccessToken).isEqualTo("new-access");
+        assertThat(tokens.decrypt(connections.connection.encryptedAccessToken())).isEqualTo("new-access");
+        assertThat(tokens.decrypt(connections.connection.encryptedRefreshToken())).isEqualTo("new-refresh");
+    }
+
+    @Test
+    void rejectedRefreshRequiresReconnectAndDoesNotRetryForever() {
+        tokenRefresher.failure = new StravaTokenRefresher.RefreshRejectedException("rejected", null);
+
+        assertThat(service.announce(event())).isEqualTo(AnnounceStravaActivity.Result.RECONNECT_NEEDED);
+        assertThat(connections.connection.state()).isEqualTo(ConnectionState.RECONNECT_NEEDED);
         assertThat(deliveries.retryAt).isNull();
     }
 
@@ -121,9 +142,15 @@ class AnnounceStravaActivityTest {
         public Optional<StravaConnection> findByMemberId(String member) { return Optional.empty(); }
         public Optional<StravaConnection> findByAthleteId(long athlete) { return athlete == 7 ? Optional.of(connection) : Optional.empty(); }
         public Optional<StravaConnection> findById(long id) { return id == 3 ? Optional.of(connection) : Optional.empty(); }
-        public void save(StravaConnection connection) { }
+        public void save(StravaConnection connection) { this.connection = connection; }
+        public boolean rotateTokens(long id, UUID generation, String access, String refresh, Instant expiresAt) {
+            connection = new StravaConnection(connection.id(), connection.discordMemberId(), connection.stravaAthleteId(), connection.generation(),
+                    connection.stravaAthleteDisplayName(), connection.grantedScope(), connection.state(), connection.connectedAt(), access, refresh, expiresAt);
+            return true;
+        }
         private String deletedMember;
-        public void markReconnectNeeded(long athlete) { }
+        public void markReconnectNeeded(long athlete) { connection = StravaConnection.reconnectNeeded(connection); }
+        public boolean markReconnectNeeded(long id, UUID generation) { connection = StravaConnection.reconnectNeeded(connection); return true; }
         public void saveUnlinkConfirmation(String member, UUID generation, Instant expiry) { }
         public Optional<UUID> consumeUnlinkConfirmation(String member, Instant now) { return Optional.empty(); }
         public boolean deleteByMemberIdAndGeneration(String member, UUID generation) { deletedMember = member; return true; }
@@ -155,7 +182,17 @@ class AnnounceStravaActivityTest {
     private static final class FakeStrava implements StravaActivityClient {
         private StravaActivity activity = new StravaActivity(44, "Morning Run", "Run", 5200, 1800, CONNECTED.plusSeconds(1));
         private RuntimeException failure;
-        public StravaActivity fetch(long id, String token) { if (failure != null) throw failure; return activity; }
+        private String receivedAccessToken;
+        public StravaActivity fetch(long id, String token) { receivedAccessToken = token; if (failure != null) throw failure; return activity; }
+    }
+    private static final class FakeTokenRefresher implements StravaTokenRefresher {
+        private String receivedRefreshToken;
+        private RuntimeException failure;
+        public RefreshedTokens refresh(String refreshToken) {
+            receivedRefreshToken = refreshToken;
+            if (failure != null) throw failure;
+            return new RefreshedTokens("new-access", "new-refresh", CONNECTED.plusSeconds(21_600));
+        }
     }
     private static final class FakeDiscord implements DiscordActivityAnnouncements {
         private final java.util.List<DiscordActivityAnnouncement> sent = new java.util.ArrayList<>();
