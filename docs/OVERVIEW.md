@@ -29,7 +29,6 @@ This repository runs a single-server Discord bot that connects Discord members t
 │   ├── application.properties
 │   └── db/migration/   ordered PostgreSQL schema migrations
 ├── src/test/java/      unit and PostgreSQL integration tests, mirroring production packages
-├── wayfinder/          product map, research, and historical implementation tickets
 ├── Dockerfile          Java build stage plus minimal JRE runtime
 ├── fly.toml            Fly.io machine, HTTPS service, and health-check configuration
 └── build.gradle        dependencies, Java toolchain, and test configuration
