@@ -18,7 +18,8 @@ public final class HttpStravaActivityClient implements StravaActivityClient {
             return new StravaActivity(number(body, "id"), string(body, "name"), string(body, "sport_type"),
                     number(body, "distance"), number(body, "moving_time"), Instant.parse(string(body, "start_date")),
                     optionalDecimal(body, "average_heartrate"), optionalDecimal(body, "max_heartrate"),
-                    optionalInteger(body, "suffer_score"), optionalString(body, "device_name"));
+                    optionalInteger(body, "suffer_score"), optionalString(body, "device_name"),
+                    optionalString(body, "description"));
         } catch (RuntimeException failure) { throw new ActivityUnavailableException("Strava Activity unavailable", failure); }
     }
     private static long number(Map<String, Object> body, String key) { Object value = body.get(key); if (value instanceof Number n) return n.longValue(); throw new IllegalArgumentException(key); }

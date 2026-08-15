@@ -96,7 +96,8 @@ public final class AnnounceStravaActivity {
             discord.send(new DiscordActivityAnnouncement(configured.channelId(), active.discordMemberId(), activity.name(),
                     activity.sportType(), activity.distanceMetres() / 1000.0, activity.movingTimeSeconds(),
                     activity.startDate(), "https://www.strava.com/activities/" + activity.id(),
-                    activity.averageHeartrate(), activity.maxHeartrate(), activity.sufferScore(), activity.deviceName()));
+                    activity.averageHeartrate(), activity.maxHeartrate(), activity.sufferScore(), activity.deviceName(),
+                    activity.description()));
             try {
                 deliveries.markSent(activity.id(), now);
             } catch (RuntimeException markFailure) {
