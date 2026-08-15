@@ -30,6 +30,9 @@ public final class JdaActivityAnnouncements implements DiscordActivityAnnounceme
                 .addField("Activity", a.activityName(), false).addField("Sport", a.sportType(), true)
                 .addField("Distance", String.format(Locale.ROOT, "%.2f km", a.kilometres()), true)
                 .addField("Moving time", duration(a.movingTimeSeconds()), true)
+                .addField("Heart rate", heartRate(a.averageHeartrate(), a.maxHeartrate()), true)
+                .addField("Suffer score", a.sufferScore() == null ? "—" : Integer.toString(a.sufferScore()), true)
+                .addField("Device", a.deviceName() == null ? "—" : a.deviceName(), true)
                 .addField("When", "<t:" + a.startDate().getEpochSecond() + ":F>", false)
                 .setUrl(a.stravaUrl()).build()).complete();
         } catch (ErrorResponseException failure) {
@@ -42,4 +45,9 @@ public final class JdaActivityAnnouncements implements DiscordActivityAnnounceme
         }
     }
     private static String duration(long seconds) { Duration d = Duration.ofSeconds(seconds); return "%dh %02dm %02ds".formatted(d.toHours(), d.toMinutesPart(), d.toSecondsPart()); }
+    private static String heartRate(Double average, Double max) {
+        if (average == null && max == null) return "—";
+        if (average != null && max != null) return String.format(Locale.ROOT, "%.0f / %.0f bpm", average, max);
+        return String.format(Locale.ROOT, "%.0f bpm", average != null ? average : max);
+    }
 }

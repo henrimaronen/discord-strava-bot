@@ -27,5 +27,9 @@ An Activity that Strava has recorded as finished and that qualifies for an annou
 _Avoid_: completion event, finished workout
 
 **Activity announcement**:
-The Discord message sent to the Announcement channel for a Completed activity.
-_Avoid_: notification, post, alert
+The Discord message sent to the Announcement channel for a Completed activity. It is stats-first: sport and Announcement stats, not celebratory copy.
+_Avoid_: notification, post, alert, workout message, cheer line
+
+**Announcement stats**:
+The numbers shown on an Activity announcement, drawn from the Completed activity.
+_Avoid_: extra stats, metrics dump
