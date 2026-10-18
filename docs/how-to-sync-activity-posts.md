@@ -56,6 +56,7 @@ Change `ignores_nonCreatesInactiveConnectionsAndPreConnectionActivities`. An upd
 Assert these outcomes with the fakes already in `AnnounceStravaActivityTest`.
 
 - A create still sends one card, and the stored message id is the one the fake Discord returned.
+- A reclaim of a `PROCESSING` row that already has a message id does not send a second card.
 - An update after send fetches again and edits that message once. A second update with the same result edits again and does not send a second card.
 - An update that arrives before send does not send twice. The card that lands matches the later fetch.
 - A delete after send removes that message and does not leave a second one.
