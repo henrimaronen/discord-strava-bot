@@ -40,7 +40,9 @@ This is the smaller change. It is still second. A photo on a card that never upd
 
 **Who notices.** The athlete whose token Strava has rejected. On a bad day this is the only post that matters, because every later workout is missing.
 
-`AnnounceStravaActivity` marks the connection `RECONNECT_NEEDED`, discards the delivery, and writes a log line. The member hears about it only by running `/status`. The status text already says to use `/connect`. Nothing sends that text on its own.
+`AnnounceStravaActivity` marks the connection `RECONNECT_NEEDED` when a token refresh is rejected, discards the delivery, and writes a log line. The member hears about it only by running `/status`. The status text already says to use `/connect`. Nothing sends that text on its own.
+
+`ConnectStrava.authorizationFailed` is named for a Strava deauthorization, and production never calls it. The webhook controller ignores an athlete update, so deauthorization leaves the connection `ACTIVE` until a later refresh fails. The private message follows the `RECONNECT_NEEDED` transition. It does not fire when that webhook arrives.
 
 When the state first changes to `RECONNECT_NEEDED`, send one private Discord message to that member with the same Connect Strava button `/connect` already uses. Do not send it again while the connection stays in that state. This does not fix a channel the bot can no longer see. That failure disables announcements and logs `announcement_channel_unavailable`, and the admin is also not told. Leave the admin notice for a later change.
 

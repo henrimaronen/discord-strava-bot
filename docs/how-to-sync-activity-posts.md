@@ -33,7 +33,9 @@ Strava retries when the HTTP handler is slow or fails. Do the database write in 
 
 ## Edit and delete the same card
 
-`DiscordActivityAnnouncements.send` returns nothing, and `JdaActivityAnnouncements.send` discards the message `complete()` returns. Change the send boundary so the workflow receives the channel id and the message id, then pass both to `markSent`.
+`DiscordActivityAnnouncements.send` returns nothing, and `JdaActivityAnnouncements.send` discards the message `complete()` returns. Change the send boundary so the workflow receives the channel id and the message id. Write both in the same database update that marks the row sent.
+
+`JdbcActivityDeliveryRepository` reclaims a `PROCESSING` row whose `processing_started_at` is at least 300 seconds old. If that reclaim finds a message id, it must edit or stop. It must not send a second card. A crash after Discord accepts the message and before that update can still post twice. That gap already exists today.
 
 Add `edit` and `deleteMessage` on that same boundary. `edit` builds the embed the send path already builds, from a fresh `DiscordActivityAnnouncement`. `deleteMessage` deletes by channel id and message id. Discord lets a bot edit and delete its own messages with the permissions this bot already asks for, which are View Channel, Send Messages, and Embed Links. Confirm that on a test server before shipping. This claim is from the Discord permission model, not from a test in this repository.
 
