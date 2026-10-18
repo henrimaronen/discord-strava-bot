@@ -3,6 +3,7 @@ package com.discordstrava.activity;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.requests.ErrorResponse;
@@ -32,6 +33,7 @@ public final class JdaActivityAnnouncements implements DiscordActivityAnnounceme
             for (ActivityCardStats.CardField field : ActivityCardStats.fields(a)) embed.addField(field.name(), field.value(), true);
             if (a.description() != null) embed.setDescription(a.description());
             if (a.deviceName() != null) embed.setFooter(a.deviceName());
+            if (isEmbeddableUrl(a.primaryPhotoUrl())) embed.setImage(a.primaryPhotoUrl());
             channel.sendMessageEmbeds(embed.build()).complete();
         } catch (ErrorResponseException failure) {
             if (failure.getErrorResponse() == ErrorResponse.UNKNOWN_CHANNEL
@@ -41,6 +43,10 @@ public final class JdaActivityAnnouncements implements DiscordActivityAnnounceme
             }
             throw new DiscordDeliveryException(DiscordDeliveryException.Kind.TRANSIENT, "Discord send failed", failure);
         }
+    }
+    /** EmbedBuilder rejects these with an exception, which would block the whole card instead of only the photo. */
+    static boolean isEmbeddableUrl(String url) {
+        return url != null && url.length() <= MessageEmbed.URL_MAX_LENGTH && EmbedBuilder.URL_PATTERN.matcher(url).matches();
     }
     static int sportColor(String sportType) {
         return switch (sportType) {

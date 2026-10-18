@@ -97,7 +97,8 @@ public final class AnnounceStravaActivity {
                     activity.sportType(), activity.distanceMetres() / 1000.0, activity.movingTimeSeconds(),
                     activity.startDate(), "https://www.strava.com/activities/" + activity.id(),
                     activity.averageHeartrate(), activity.maxHeartrate(), activity.sufferScore(), activity.deviceName(),
-                    activity.description(), activity.totalElevationGainMetres()));
+                    activity.description(), activity.totalElevationGainMetres(),
+                    activity.primaryPhotoUrl()));
             try {
                 deliveries.markSent(activity.id(), now);
             } catch (RuntimeException markFailure) {

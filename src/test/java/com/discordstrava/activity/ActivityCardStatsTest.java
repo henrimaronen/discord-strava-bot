@@ -95,6 +95,6 @@ class ActivityCardStatsTest {
             Double averageHeartrate, Double maxHeartrate, Integer sufferScore) {
         return new DiscordActivityAnnouncement("channel", "member", "Morning Run", sport, kilometres, seconds,
                 Instant.parse("2026-08-04T10:00:01Z"), "https://www.strava.com/activities/44", averageHeartrate, maxHeartrate,
-                sufferScore, null, null, elevation);
+                sufferScore, null, null, elevation, null);
     }
 }
