@@ -29,12 +29,12 @@ public final class ActivityCardStats {
     }
 
     public static CardField distance(double kilometres) {
-        if (kilometres <= 0) return null;
+        if (Math.round(kilometres * 100) <= 0) return null;
         return new CardField("Distance", String.format(Locale.ROOT, "%.2f km", kilometres));
     }
 
     public static CardField movement(String sportType, double kilometres, long movingSeconds) {
-        if (kilometres <= 0 || movingSeconds <= 0) return null;
+        if (distance(kilometres) == null || movingSeconds <= 0) return null;
         if (PACE_SPORTS.contains(sportType)) {
             long secondsPerKilometre = Math.round(movingSeconds / kilometres);
             return new CardField("Pace", "%d:%02d /km".formatted(secondsPerKilometre / 60, secondsPerKilometre % 60));
@@ -43,10 +43,11 @@ public final class ActivityCardStats {
     }
 
     public static CardField elevation(Double metres) {
-        if (metres == null || !(metres > 0)) return null;
-        double tenths = Math.round(metres * 10) / 10.0;
-        String value = tenths == Math.rint(tenths) ? "%d m".formatted((long) tenths) : String.format(Locale.ROOT, "%.1f m", tenths);
-        return new CardField("Elevation", value);
+        if (metres == null) return null;
+        long tenths = Math.round(metres * 10);
+        if (tenths <= 0) return null;
+        if (tenths % 10 == 0) return new CardField("Elevation", "%d m".formatted(tenths / 10));
+        return new CardField("Elevation", String.format(Locale.ROOT, "%.1f m", tenths / 10.0));
     }
 
     public static CardField heartRate(Double average, Double max) {

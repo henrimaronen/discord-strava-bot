@@ -38,6 +38,8 @@ class ActivityCardStatsTest {
         assertThat(ActivityCardStats.distance(0)).isNull();
         assertThat(ActivityCardStats.movement("HighIntensityIntervalTraining", 0, 1800)).isNull();
         assertThat(ActivityCardStats.movement("Run", 0, 1800)).isNull();
+        assertThat(ActivityCardStats.distance(0.004)).isNull();
+        assertThat(ActivityCardStats.movement("Run", 0.004, 1800)).isNull();
     }
 
     @Test
@@ -53,6 +55,7 @@ class ActivityCardStatsTest {
         assertThat(ActivityCardStats.elevation(12.5)).isEqualTo(new CardField("Elevation", "12.5 m"));
         assertThat(ActivityCardStats.elevation(12.04)).isEqualTo(new CardField("Elevation", "12 m"));
         assertThat(ActivityCardStats.elevation(0.0)).isNull();
+        assertThat(ActivityCardStats.elevation(0.04)).isNull();
         assertThat(ActivityCardStats.elevation(null)).isNull();
     }
 
