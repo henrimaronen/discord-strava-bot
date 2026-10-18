@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Card format variants</title>
+<style>
+  body { margin: 0; background: #313338; color: #dbdee1; font-family: "gg sans", "Noto Sans", sans-serif; }
+  h1 { font-size: 16px; margin: 16px; }
+  .row { display: flex; gap: 24px; padding: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .label { font-size: 13px; color: #b5bac1; margin-bottom: 8px; }
+  .card { width: 420px; background: #2b2d31; border-radius: 8px; border-left: 4px solid #fc4c02; padding: 12px 16px 16px; }
+  .author { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+  .avatar { width: 24px; height: 24px; border-radius: 50%; background: #5865f2; }
+  .title { color: #00a8fc; font-weight: 600; margin: 8px 0; }
+  .desc { font-size: 14px; margin-bottom: 8px; }
+  .fields { display: flex; flex-wrap: wrap; gap: 8px 0; }
+  .field { width: 33%; }
+  .field .n { font-size: 12px; font-weight: 700; }
+  .field .v { font-size: 14px; }
+  .photo { margin-top: 8px; width: 100%; height: 160px; background: #1e1f22 url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="160"><rect fill="%231e1f22" width="400" height="160"/><text x="20" y="80" fill="%23dbdee1" font-size="16">workout photo 600</text></svg>') center/cover; border-radius: 4px; }
+  .thumb { float: right; width: 80px; height: 80px; margin-left: 8px; background: #1e1f22; border-radius: 4px; font-size: 11px; padding: 8px; }
+  .footer { font-size: 12px; color: #b5bac1; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Variant A. Pace field, omit zero distance, large photo</h1>
+<div class="row">
+  <div>
+    <div class="label">A1 run 5.20 km in 1800 s</div>
+    <div class="card">
+      <div class="author"><div class="avatar"></div> Alex</div>
+      <div class="title">Morning Run</div>
+      <div class="desc">Easy miles.</div>
+      <div class="fields">
+        <div class="field"><div class="n">Sport</div><div class="v">Run</div></div>
+        <div class="field"><div class="n">Distance</div><div class="v">5.20 km</div></div>
+        <div class="field"><div class="n">Moving time</div><div class="v">0h 30m 00s</div></div>
+        <div class="field"><div class="n">Pace</div><div class="v">5:46 /km</div></div>
+        <div class="field"><div class="n">Elevation</div><div class="v">128 m</div></div>
+        <div class="field"><div class="n">Heart rate</div><div class="v">140 / 178 bpm</div></div>
+      </div>
+      <div class="photo"></div>
+      <div class="footer">Garmin Forerunner</div>
+    </div>
+  </div>
+  <div>
+    <div class="label">A2 HIIT 0 km</div>
+    <div class="card" style="border-color:#9b59b6">
+      <div class="author"><div class="avatar"></div> Alex</div>
+      <div class="title">Lunch HIIT</div>
+      <div class="fields">
+        <div class="field"><div class="n">Sport</div><div class="v">HIIT</div></div>
+        <div class="field"><div class="n">Moving time</div><div class="v">0h 20m 00s</div></div>
+        <div class="field"><div class="n">Heart rate</div><div class="v">150 / 176 bpm</div></div>
+      </div>
+      <div class="footer">No distance, no pace, no elevation</div>
+    </div>
+  </div>
+</div>
+<h1>Variant B. Pace packed into the distance field, photo thumbnail</h1>
+<div class="row">
+  <div>
+    <div class="label">B1 run</div>
+    <div class="card">
+      <div class="thumb">photo 100</div>
+      <div class="author"><div class="avatar"></div> Alex</div>
+      <div class="title">Morning Run</div>
+      <div class="fields">
+        <div class="field"><div class="n">Sport</div><div class="v">Run</div></div>
+        <div class="field" style="width:66%"><div class="n">Distance</div><div class="v">5.20 km, 5:46 /km</div></div>
+        <div class="field"><div class="n">Moving time</div><div class="v">0h 30m 00s</div></div>
+        <div class="field"><div class="n">Elevation</div><div class="v">128 m</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<h1>Variant C. Speed in km/h for a run, no pace</h1>
+<div class="row">
+  <div>
+    <div class="label">C1 run shown as 10.4 km/h</div>
+    <div class="card">
+      <div class="author"><div class="avatar"></div> Alex</div>
+      <div class="title">Morning Run</div>
+      <div class="fields">
+        <div class="field"><div class="n">Sport</div><div class="v">Run</div></div>
+        <div class="field"><div class="n">Distance</div><div class="v">5.20 km</div></div>
+        <div class="field"><div class="n">Speed</div><div class="v">10.4 km/h</div></div>
+        <div class="field"><div class="n">Moving time</div><div class="v">0h 30m 00s</div></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="label">C2 ride, same speed field</div>
+    <div class="card" style="border-color:#3498db">
+      <div class="author"><div class="avatar"></div> Alex</div>
+      <div class="title">Evening Ride</div>
+      <div class="fields">
+        <div class="field"><div class="n">Sport</div><div class="v">Ride</div></div>
+        <div class="field"><div class="n">Distance</div><div class="v">40.00 km</div></div>
+        <div class="field"><div class="n">Speed</div><div class="v">40.0 km/h</div></div>
+        <div class="field"><div class="n">Moving time</div><div class="v">1h 00m 00s</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
