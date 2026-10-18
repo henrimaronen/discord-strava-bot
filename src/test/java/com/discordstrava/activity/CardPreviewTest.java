@@ -9,12 +9,14 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.junit.jupiter.api.Test;
 
-/** Writes one HTML facsimile of the Discord card per fixture to /tmp/card-preview/ for visual review. */
+/** Writes one HTML facsimile of the real Discord embed per fixture to /tmp/card-preview/ for visual review. */
 class CardPreviewTest {
     private static final Path OUTPUT = Path.of("/tmp/card-preview");
     private static final String MEMBER = "Henri";
+    private static final String AVATAR = "https://cdn.discordapp.com/embed/avatars/0.png";
     private static final String LARGE = "https://dgtzuqphqg23d.cloudfront.net/photo-600x450.jpg";
     private static final String SMALL = "https://dgtzuqphqg23d.cloudfront.net/photo-100x75.jpg";
 
@@ -22,7 +24,7 @@ class CardPreviewTest {
     void writesOnePreviewPerFixture() throws IOException {
         Files.createDirectories(OUTPUT);
         for (Map.Entry<String, DiscordActivityAnnouncement> fixture : fixtures().entrySet()) {
-            Files.writeString(OUTPUT.resolve(fixture.getKey() + ".html"), html(fixture.getValue()));
+            Files.writeString(OUTPUT.resolve(fixture.getKey() + ".html"), html(JdaActivityAnnouncements.embed(fixture.getValue(), MEMBER, AVATAR)));
         }
 
         assertThat(preview("morning-run")).contains(field("Distance", "5.20 km"), field("Pace", "5:46 /km"),
@@ -97,9 +99,10 @@ class CardPreviewTest {
                 sufferScore, "Garmin Forerunner 265", description, elevation, photoUrl);
     }
 
-    private static String html(DiscordActivityAnnouncement a) {
+    private static String html(MessageEmbed embed) {
         StringBuilder fields = new StringBuilder();
-        for (ActivityCardStats.CardField field : ActivityCardStats.fields(a)) fields.append(field(field.name(), field.value()));
+        for (MessageEmbed.Field field : embed.getFields()) fields.append(field(field.getName(), field.getValue()));
+        String footer = embed.getFooter() == null ? embed.getTimestamp().toString() : embed.getFooter().getText() + " • " + embed.getTimestamp();
         return """
                 <!doctype html>
                 <html><head><meta charset="utf-8"><title>%s</title><style>
@@ -119,11 +122,10 @@ class CardPreviewTest {
                 %s<div class="fields">%s</div>
                 %s<div class="footer">%s</div>
                 </div></body></html>
-                """.formatted(escape(a.activityName()), JdaActivityAnnouncements.sportColor(a.sportType()), escape(MEMBER),
-                escape(a.stravaUrl()), escape(a.activityName()),
-                a.description() == null ? "" : "<div class=\"description\">" + escape(a.description()) + "</div>",
-                fields, JdaActivityAnnouncements.isEmbeddableUrl(a.primaryPhotoUrl()) ? image(a.primaryPhotoUrl()) : "",
-                escape(a.deviceName() == null ? a.startDate().toString() : a.deviceName() + " • " + a.startDate()));
+                """.formatted(escape(embed.getTitle()), embed.getColorRaw(), escape(embed.getAuthor().getName()),
+                escape(embed.getUrl()), escape(embed.getTitle()),
+                embed.getDescription() == null ? "" : "<div class=\"description\">" + escape(embed.getDescription()) + "</div>",
+                fields, embed.getImage() == null ? "" : image(embed.getImage().getUrl()), escape(footer));
     }
 
     private static String field(String name, String value) {

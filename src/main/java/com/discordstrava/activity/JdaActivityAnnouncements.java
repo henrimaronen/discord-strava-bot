@@ -25,16 +25,7 @@ public final class JdaActivityAnnouncements implements DiscordActivityAnnounceme
         GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, a.channelId());
         if (channel == null) throw new DiscordDeliveryException(DiscordDeliveryException.Kind.CHANNEL_UNAVAILABLE, "Announcement channel unavailable", null);
         try {
-            EmbedBuilder embed = new EmbedBuilder()
-                .setAuthor(member.getEffectiveName(), null, member.getEffectiveAvatarUrl())
-                .setTitle(a.activityName(), a.stravaUrl())
-                .setColor(sportColor(a.sportType()))
-                .setTimestamp(a.startDate());
-            for (ActivityCardStats.CardField field : ActivityCardStats.fields(a)) embed.addField(field.name(), field.value(), true);
-            if (a.description() != null) embed.setDescription(a.description());
-            if (a.deviceName() != null) embed.setFooter(a.deviceName());
-            if (isEmbeddableUrl(a.primaryPhotoUrl())) embed.setImage(a.primaryPhotoUrl());
-            channel.sendMessageEmbeds(embed.build()).complete();
+            channel.sendMessageEmbeds(embed(a, member.getEffectiveName(), member.getEffectiveAvatarUrl())).complete();
         } catch (ErrorResponseException failure) {
             if (failure.getErrorResponse() == ErrorResponse.UNKNOWN_CHANNEL
                     || failure.getErrorResponse() == ErrorResponse.MISSING_ACCESS
@@ -44,11 +35,23 @@ public final class JdaActivityAnnouncements implements DiscordActivityAnnounceme
             throw new DiscordDeliveryException(DiscordDeliveryException.Kind.TRANSIENT, "Discord send failed", failure);
         }
     }
+    static MessageEmbed embed(DiscordActivityAnnouncement a, String authorName, String authorAvatarUrl) {
+        EmbedBuilder embed = new EmbedBuilder()
+            .setAuthor(authorName, null, authorAvatarUrl)
+            .setTitle(a.activityName(), a.stravaUrl())
+            .setColor(sportColor(a.sportType()))
+            .setTimestamp(a.startDate());
+        for (ActivityCardStats.CardField field : ActivityCardStats.fields(a)) embed.addField(field.name(), field.value(), true);
+        if (a.description() != null) embed.setDescription(a.description());
+        if (a.deviceName() != null) embed.setFooter(a.deviceName());
+        if (isEmbeddableUrl(a.primaryPhotoUrl())) embed.setImage(a.primaryPhotoUrl());
+        return embed.build();
+    }
     /** EmbedBuilder rejects these with an exception, which would block the whole card instead of only the photo. */
-    static boolean isEmbeddableUrl(String url) {
+    private static boolean isEmbeddableUrl(String url) {
         return url != null && url.length() <= MessageEmbed.URL_MAX_LENGTH && EmbedBuilder.URL_PATTERN.matcher(url).matches();
     }
-    static int sportColor(String sportType) {
+    private static int sportColor(String sportType) {
         return switch (sportType) {
             case "Ride", "GravelRide", "MountainBikeRide", "EBikeRide", "EMountainBikeRide", "VirtualRide",
                     "Handcycle", "Velomobile" -> 0x3498DB;
