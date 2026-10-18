@@ -46,9 +46,12 @@ class AnnounceStravaActivityTest {
             assertThat(sent.sufferScore()).isEqualTo(82);
             assertThat(sent.deviceName()).isEqualTo("Garmin Forerunner");
             assertThat(sent.description()).isEqualTo("Easy miles.");
+            assertThat(sent.totalElevationGainMetres()).isEqualTo(128.0);
+            assertThat(sent.primaryPhotoUrl()).isEqualTo("https://dgtzuqphqg23d.cloudfront.net/photo-600x450.jpg");
             assertThat(sent.stravaUrl()).isEqualTo("https://www.strava.com/activities/44");
         });
         assertThat(deliveries.sent).containsExactly(44L);
+        assertThat(strava.fetches).isEqualTo(1);
     }
 
     @Test
@@ -58,7 +61,7 @@ class AnnounceStravaActivityTest {
         connections.connection = reconnectNeeded();
         assertThat(service.announce(event())).isEqualTo(AnnounceStravaActivity.Result.IGNORED);
         connections.connection = active();
-        strava.activity = new StravaActivity(44, "Old", "Run", 1, 1, CONNECTED, null, null, null, null, null);
+        strava.activity = new StravaActivity(44, "Old", "Run", 1, 1, CONNECTED, null, null, null, null, null, null, null);
         assertThat(service.announce(event())).isEqualTo(AnnounceStravaActivity.Result.INELIGIBLE);
         assertThat(discord.sent).isEmpty();
     }
@@ -186,10 +189,12 @@ class AnnounceStravaActivityTest {
     }
     private static final class FakeStrava implements StravaActivityClient {
         private StravaActivity activity = new StravaActivity(44, "Morning Run", "Run", 5200, 1800, CONNECTED.plusSeconds(1),
-                140.3, 178.0, 82, "Garmin Forerunner", "Easy miles.");
+                140.3, 178.0, 82, "Garmin Forerunner", "Easy miles.", 128.0,
+                "https://dgtzuqphqg23d.cloudfront.net/photo-600x450.jpg");
         private RuntimeException failure;
         private String receivedAccessToken;
-        public StravaActivity fetch(long id, String token) { receivedAccessToken = token; if (failure != null) throw failure; return activity; }
+        private int fetches;
+        public StravaActivity fetch(long id, String token) { fetches++; receivedAccessToken = token; if (failure != null) throw failure; return activity; }
     }
     private static final class FakeTokenRefresher implements StravaTokenRefresher {
         private String receivedRefreshToken;

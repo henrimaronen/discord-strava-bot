@@ -3,3 +3,4 @@ build/
 .env
 .env.local
 .env.prod
+bin/
