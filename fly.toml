@@ -23,7 +23,6 @@ primary_region = 'arn'
     path = '/healthz'
 
 [[vm]]
-  memory = '1gb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 1024
